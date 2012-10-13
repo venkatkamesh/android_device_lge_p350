@@ -89,7 +89,6 @@ BOARD_USES_QCOM_LIBS := true
 BOARD_ADRENO_DECIDE_TEXTURE_TARGET := true
 BOARD_USE_SKIA_LCDTEXT := true
 BOARD_EGL_CFG := device/lge/p350/configs/egl.cfg
-COMMON_GLOBAL_CFLAGS += -DQCOM_HARDWARE -DREFRESH_RATE=60
 
 # Enable the GPS HAL & AMSS version to use for GPS
 BOARD_GPS_LIBRARIES := libgps librpc
