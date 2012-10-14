@@ -1,3 +1,4 @@
+
 /*
 ** Copyright 2008, The Android Open-Source Project
 ** Copyright (c) 2012, Code Aurora Forum. All rights reserved.
@@ -446,14 +447,17 @@ status_t AudioHardware::setParameters(const String8& keyValuePairs)
     }
 
 #ifdef HAVE_FM_RADIO
-    key = String8(FM_ON_KEY);
+    key = String8(AudioParameter::keyFmOn);
     int devices;
     if (param.getInt(key, devices) == NO_ERROR) {
        setFmOnOff(true);
     }
-    key = String8(FM_OFF_KEY);
+    key = String8(AudioParameter::keyFmOff);;
     if (param.getInt(key, devices) == NO_ERROR) {
-       setFmOnOff(false);
+       setFmOnOff(true);
+	} else if (param.getInt(key, devices) == NO_ERROR) {
+	  LOGE("devices = %d", devices);
+	  setFmOnOff(false);
     }
 #endif
     
@@ -1192,7 +1196,9 @@ status_t AudioHardware::setMasterVolume(float v)
     set_volume_rpc(SND_DEVICE_IN_S_SADC_OUT_HANDSET, SND_METHOD_VOICE, vol, m7xsnddriverfd);
     set_volume_rpc(SND_DEVICE_IN_S_SADC_OUT_SPEAKER_PHONE, SND_METHOD_VOICE, vol, m7xsnddriverfd);
     set_volume_rpc(SND_DEVICE_TTY_HEADSET, SND_METHOD_VOICE, 1, m7xsnddriverfd);
-    set_volume_rpc(SND_DEVICE_TTY_VCO, SND_METHOD_VOICE, 1, m7xsnddriverfd);
+    set_volume_rpc(SND_DEVICE_FM_SPEAKER, SND_METHOD_VOICE, vol * 3, m7xsnddriverfd);
+	set_volume_rpc(SND_DEVICE_FM_HEADSET, SND_METHOD_VOICE, vol, m7xsnddriverfd);
+	set_volume_rpc(SND_DEVICE_TTY_VCO, SND_METHOD_VOICE, 1, m7xsnddriverfd);
     // We return an error code here to let the audioflinger do in-software
     // volume on top of the maximum volume that we set through the SND API.
     // return error - software mixer will handle it
@@ -1201,7 +1207,8 @@ status_t AudioHardware::setMasterVolume(float v)
 #ifdef HAVE_FM_RADIO
 status_t AudioHardware::setFmVolume(float v)
 {
-    if (v < 0.0) {
+
+	if (v < 0.0) {
         LOGW("setFmVolume(%f) under 0.0, assuming 0.0\n", v);
         v = 0.0;
     } else if (v > 1.0) {
@@ -1226,8 +1233,11 @@ status_t AudioHardware::setFmVolume(float v)
 
 status_t AudioHardware::setFmOnOff(bool onoff)
 {
-    mFmRadioEnabled = onoff;
-    return NO_ERROR;
+    LOGE("setFmOnOff(%d) called", onoff);
+	
+	mFmRadioEnabled = onoff;
+	
+    return dorouting(null);
 }
 #endif
 
@@ -1417,6 +1427,21 @@ status_t AudioHardware::doRouting(AudioStreamInMSM72xx *input)
                 }
             } else {
 #ifdef HAVE_FM_RADIO
+			} else  if (outputDevices & AudioSystem::DEVICE_OUT_FM) {
+					LOGI("Routing audio to Headset\n");
+					new_snd_device = SND_DEVICE_FM_HEADSET;
+					new_post_proc_feature_mask = (ADRC_ENABLE | EQ_ENABLE | RX_IIR_ENABLE | MBADRC_ENABLE);
+			} else if (outputDevices & AudioSystem::DEVICE_OUT_FM_SPEAKER) {
+					
+					LOGI("Routing audio to FM Speakerphone\n");
+					new_snd_device = SND_DEVICE_FM_SPEAKER;
+					new_post_proc_feature_mask = (ADRC_ENABLE | EQ_ENABLE | RX_IIR_ENABLE | MBADRC_ENABLE);
+
+			}else {	
+			
+#endif			
+			
+#ifdef HAVE_FM_RADIO
                 if (mFmRadioEnabled) {
                     LOGI("Routing audio to FM Headset\n");
                     new_snd_device = SND_DEVICE_FM_HEADSET;
@@ -1494,14 +1519,16 @@ status_t AudioHardware::doRouting(AudioStreamInMSM72xx *input)
     }
 
     if ( (new_snd_device != -1 && new_snd_device != mCurSndDevice)
+	
 #ifdef HAVE_FM_RADIO
      ||  (mFmRadioEnabled != mFmPrev)
 #endif     
      )
     {
-        ret = doAudioRouteOrMute(new_snd_device);
+		LOGW("Routing to %d really (current: %d)", new_snd_device, mCurSndDevice);
+        ret = doAudioRouteOrMute(new_snd_device); 
 
-       //disable post proc first for previous session
+		//disable post proc first for previous session
        if (playback_in_progress)
            msm72xx_enable_postproc(false);
 
