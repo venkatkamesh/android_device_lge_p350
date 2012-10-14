@@ -75,6 +75,11 @@ BOARD_PROVIDES_LIBRIL := true
 BOARD_HAVE_BLUETOOTH := true
 BOARD_HAVE_BLUETOOTH_BCM := true
 
+#fm
+BOARD_HAVE_FM_RADIO := true
+BOARD_GLOBAL_CFLAGS += -DHAVE_FM_RADIO
+BOARD_USE_BROADCOM_FM_VOLUME_HACK := true
+
 # Enable OpenGL Hardware Acceleration
 # msm7x27: no support for overlay, bypass, or c2d
 USE_OPENGL_RENDERER := true
